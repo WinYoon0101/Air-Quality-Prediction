@@ -1,0 +1,53 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: minio_datalake
+    ports: ["9000:9000", "9001:9001"]
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password123
+      volumes:
+      - D:/docker_data/minio:/data # Lưu thẳng vào ổ D
+    command: server /data --console-address ":9001"
+
+  # Using official Apache Spark image for the Master
+  spark-master:
+    image: apache/spark:latest
+    container_name: spark_master
+    environment:
+      - SPARK_MODE=master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+    command: /opt/spark/sbin/start-master.sh
+
+  # Using official Apache Spark image for the Worker
+  spark-worker:
+    image: apache/spark:latest
+    container_name: spark_worker
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_CORES=2
+    depends_on:
+      - spark-master
+    command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
+
+  cassandra:
+    image: cassandra:latest
+    container_name: cassandra_db
+    ports: ["9042:9042"]
+    volumes:
+      - D:/docker_data/cassandra:/var/lib/cassandra # Lưu vào ổ D
+    environment: [CASSANDRA_CLUSTER_NAME=AirQualityCluster]
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana_dashboard
+    ports: ["3000:3000"]
+    volumes:
+      - D:/docker_data/grafana:/var/lib/grafana # Lưu vào ổ D
+    environment:
+      - GF_INSTALL_PLUGINS=hadesarchitect-cassandra-datasource
+    depends_on: [cassandra]
